@@ -1,6 +1,5 @@
 const timeout = process.env.DEBUG ? 99999999 : 30000;
-const puppeteerCore  = require('puppeteer-core');
-
+const puppeteerCore = require('puppeteer-core');
 
 exports.config = {
     //
@@ -11,7 +10,10 @@ exports.config = {
     // WebdriverIO allows it to run your tests in arbitrary locations (e.g. locally or
     // on a remote machine).
     runner: 'local',
-
+    hostname: "selenoid.dev.treeumapp.net",
+    port: 4444,
+    path: "/wd/hub",
+    sync: true,
     //
     // ==================
     // Specify Test Files
@@ -52,9 +54,14 @@ exports.config = {
     //
     capabilities: [{
         maxInstances: 5,
+        // browserName: 'chrome',
+        // 'goog:chromeOptions': {
+        //     args:['--remote-debugging-port=50400']
+        // }
         browserName: 'chrome',
-        'goog:chromeOptions': {
-            args:['--remote-debugging-port=50412']
+        'selenoid:options': {
+            sessionTimeout: '30m',
+            enableVNC: true
         }
     }],
     //
@@ -106,16 +113,16 @@ exports.config = {
     // The only one supported by default is 'dot'
     // see also: https://webdriver.io/docs/dot-reporter.html
     reporters: ['spec', ['allure', {
-      outputDir: 'allure-results',
-      disableWebdriverStepsReporting: true,
+        outputDir: 'allure-results',
+        disableWebdriverStepsReporting: true,
     }]],
     //
     // Options to be passed to Mocha.
     // See the full list at http://mochajs.org/
     mochaOpts: {
-      compilers: [
-        'tsconfig-paths/register'
-      ],
+        compilers: [
+            'tsconfig-paths/register'
+        ],
         ui: 'bdd',
         timeout: timeout
     },
@@ -143,23 +150,17 @@ exports.config = {
      */
     // beforeSession: function (config, capabilities, specs) {
     // },
-    /**
-     * Gets executed before test execution begins. At this point you can access to all global
-     * variables like `browser`. It is the perfect place to define custom commands.
-     * @param {Array.<Object>} capabilities list of capabilities details
-     * @param {Array.<String>} specs List of spec file paths that are to be run
-     */
+    var: puppeteer,
     before: function () {
-        browser.url('https://127.0.0.1:50412/json/version');
-        let body = $('body');
-        let connections = JSON.parse(body.getText());
-        global.puppeteer = browser.call(() => {
+        let puppeteer = browser.call(() => {
             return puppeteerCore.connect({
-                browserWSEndpoint: connections.webSocketDebuggerUrl
+                browserWSEndpoint: `ws://selenoid.dev.treeumapp.net:4444/devtools/${browser.sessionId}`
             });
         });
         console.log("Puppeteer and WIDO connnected!");
-        require('ts-node').register({ files: true });
+        global.puppeteer = puppeteer;
+        require('ts-node').register({files: true});
+        return {browser, puppeteer}
     },
     /**
      * Runs before a WebdriverIO command gets executed.
@@ -198,9 +199,9 @@ exports.config = {
      * @param {Object} test test details
      */
     afterTest: function (test) {
-      if (test.error !== undefined) {
-        browser.takeScreenshot();
-      }
+        if (test.error !== undefined) {
+            browser.takeScreenshot();
+        }
     },
     /**
      * Hook that gets executed after the suite has ended
@@ -244,4 +245,4 @@ exports.config = {
      */
     // onComplete: function(exitCode, config, capabilities, results) {
     // }
-}
+};
